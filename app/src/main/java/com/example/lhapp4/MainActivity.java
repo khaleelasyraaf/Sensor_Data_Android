@@ -10,6 +10,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.InputMethodManager;
@@ -22,44 +23,42 @@ import android.hardware.SensorEventListener;
 
 public class MainActivity extends Activity implements SensorEventListener{
 
-
-    // Request message type
-    // The message must have the same name as declared in the service.
-    // Also, if the message is the inner class, then it must be static.
-    public static class MyRequest
-    {
-        public String Text;
-    }
-
-    // Response message type
-    // The message must have the same name as declared in the service.
-    // Also, if the message is the inner class, then it must be static.
-    public static class MyResponse
-    {
-        public int Length;
-    }
-
     private QuestionsLibrary mQuestionsLibrary = new QuestionsLibrary();
     private int mQuestionNumber = 0;
 
     // UI controls
-    private Handler myRefresh = new Handler();
+
     private EditText myMessageTextEditText;
     private EditText myResponseEditText;
-    private Button mySendRequestBtn, myAccRequestBtn;
+    private Button mySendRequestBtn, myAccRequestBtn, myConnectBtn;
     private TextView myQuestionView;
-    private TextView xText,yText, zText;
+    private TextView xText,yText, zText, GyroXText, GyroYText, GyroZText;
+    private CheckBox myCheckBoxAcc, myCheckBoxGyro;
 
     private SensorManager SM;
     Sensor myAccelerometer;
-
-    // Sender sending MyRequest and as a response receiving MyResponse.
-    private IDuplexTypedMessageSender<MyResponse, MyRequest> mySender;
+    Sensor myGyroscope;
+    TCPManager myTCPManager;
 
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
+        myTCPManager = new TCPManager();
+        final String ipAddress = getIntent().getStringExtra("IP");
+        Thread anOpenConnectionThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    myTCPManager.openConnection(ipAddress);
+                    //generatePopUp("Connection Established");
+                    //myTCPManager.onDestroy();
+                } catch (Exception err) {
+                    //generatePopUp("Open connection failed.");
+                }
+            }
+        });
+        anOpenConnectionThread.start();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -69,12 +68,12 @@ public class MainActivity extends Activity implements SensorEventListener{
         // Accelerometer sensor
         myAccelerometer = SM.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
+        // Gyroscope sensor
+        myGyroscope = SM.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
         // Register sensor listener
         SM.registerListener(MainActivity.this, myAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-
-        xText = (TextView) findViewById(R.id.xText);
-        yText = (TextView) findViewById(R.id.yText);
-        zText = (TextView) findViewById(R.id.zText);
+        SM.registerListener(MainActivity.this, myGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
 
         // Get UI widgets.
         myMessageTextEditText = (EditText) findViewById(R.id.messageTextEditText);
@@ -82,12 +81,30 @@ public class MainActivity extends Activity implements SensorEventListener{
         mySendRequestBtn = (Button) findViewById(R.id.sendRequestBtn);
         myAccRequestBtn = (Button) findViewById(R.id.sendAccBtn);
         myQuestionView = (TextView) findViewById(R.id.questionText1);
+        myCheckBoxAcc = (CheckBox) findViewById(R.id.checkBoxAcc);
+        myCheckBoxGyro = (CheckBox) findViewById(R.id.checkBoxGyro);
+
+        xText = (TextView) findViewById(R.id.xText);
+        yText = (TextView) findViewById(R.id.yText);
+        zText = (TextView) findViewById(R.id.zText);
+
+        GyroXText = (TextView) findViewById(R.id.GyroXText);
+        GyroYText = (TextView) findViewById(R.id.GyroYText);
+        GyroZText = (TextView) findViewById(R.id.GyroZText);
 
         updateQuestion();
 
         // Subscribe to handle the button click.
         mySendRequestBtn.setOnClickListener(myOnSendRequestClickHandler);
         myAccRequestBtn.setOnClickListener(myOnAccRequestClickHandler);
+
+        xText.setVisibility(View.INVISIBLE);
+        yText.setVisibility(View.INVISIBLE);
+        zText.setVisibility(View.INVISIBLE);
+
+        GyroXText.setVisibility(View.INVISIBLE);
+        GyroYText.setVisibility(View.INVISIBLE);
+        GyroZText.setVisibility(View.INVISIBLE);
 
         // Subscribe to handle the focus click
         myMessageTextEditText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
@@ -101,149 +118,80 @@ public class MainActivity extends Activity implements SensorEventListener{
                 }
             }
         });
-
-        // Open the connection in another thread.
-        // Note: From Android 3.1 (Honeycomb) or higher
-        //       it is not possible to open TCP connection
-        //       from the main thread.
-        Thread anOpenConnectionThread = new Thread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try
-                {
-                    openConnection();
-                }
-                catch (Exception err)
-                {
-                    EneterTrace.error("Open connection failed.", err);
-                }
-            }
-        });
-        anOpenConnectionThread.start();
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        /*Not implemented*/
+        // TODO Auto-generated method stub
     }
 
+    // Get the sensor data
     boolean DataRequested = false;
     @Override
     public void onSensorChanged(SensorEvent event) {
-        xText.setText("X:" + event.values[0]);
-        yText.setText("Y:" + event.values[1]);
-        zText.setText("Z:" + event.values[2]);
+        Sensor sensor = event.sensor;
+        if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            xText.setText("AccX:" + event.values[0]);
+            yText.setText("AccY:" + event.values[1]);
+            zText.setText("AccZ:" + event.values[2]);
 
-        if(DataRequested){
-            onAccRequest(event);
+            if(DataRequested){
+                onAccRequest(event);
+            }
+        } else if (sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            GyroXText.setText("GyroX:" + event.values[0]);
+            GyroYText.setText("GyroY:" + event.values[1]);
+            GyroZText.setText("GyroZ:" + event.values[2]);
+
+            if(DataRequested){
+                onGyroRequest(event);
+            }
         }
     }
 
-    @Override
-    public void onDestroy()
-    {
-        // Stop listening to response messages.
-        mySender.detachDuplexOutputChannel();
 
-        super.onDestroy();
-    }
-
-    private void openConnection() throws Exception
-    {
-        // Create sender sending MyRequest and as a response receiving MyResponse
-        IDuplexTypedMessagesFactory aSenderFactory =
-                new DuplexTypedMessagesFactory();
-        mySender = aSenderFactory.createDuplexTypedMessageSender(MyResponse.class, MyRequest.class);
-
-        // Subscribe to receive response messages.
-        mySender.responseReceived().subscribe(myOnResponseHandler);
-
-        // Create TCP messaging for the communication.
-        // Note: 192.168.0.100/192.168.0.101 is the IP address
-        //      from the wireless router (no internet)
-        //      and 8800 is the socket.
-        IMessagingSystemFactory aMessaging = new TcpMessagingSystemFactory();
-        IDuplexOutputChannel anOutputChannel =
-                aMessaging.createDuplexOutputChannel("tcp://192.168.0.100:8800/");
-
-        // Attach the output channel to the sender and be able to send
-        // messages and receive responses.
-        mySender.attachDuplexOutputChannel(anOutputChannel);
-    }
 
     // Request for the message
     private void onSendRequest(View v)
     {
-        // Create the request message.
-        MyRequest aRequestMsg = new MyRequest();
-
-        aRequestMsg.Text = "Q:" + myMessageTextEditText.getText().toString();
-
-
-        // Send the request message.
-        try
-        {
-            mySender.sendRequestMessage(aRequestMsg);
-
-        }
-        catch (Exception err)
-        {
-            EneterTrace.error("Sending the message failed.", err);
-        }
+        String s = "QQ:" + myMessageTextEditText.getText().toString();
+        generatePopUp(s);
+        myTCPManager.sendTCPMessage(s);
     }
+
+
+
 
     // Request for the accelerometer data
     private void onAccRequest(SensorEvent e)
     {
-        // Create the request data
-        MyRequest xMsg = new MyRequest();
-        MyRequest yMsg = new MyRequest();
-        MyRequest zMsg = new MyRequest();
 
-        xMsg.Text = "X:" + e.values[0];
-        yMsg.Text = "Y:" + e.values[1];
-        zMsg.Text = "Z:" + e.values[2];
+        String x = "AX:" + e.values[0];
+        String y = "AY:" + e.values[1];
+        String z = "AZ:" + e.values[2];
 
-        //Send the request data
-        try
-        {
-            mySender.sendRequestMessage(xMsg);
-            mySender.sendRequestMessage(yMsg);
-            mySender.sendRequestMessage(zMsg);
-        }
-        catch (Exception err)
-        {
-            EneterTrace.error("Sending the data failed.", err);
-        }
+        Log.d("acc ", x);
+        myTCPManager.sendTCPMessage(x);
+        myTCPManager.sendTCPMessage(y);
+        myTCPManager.sendTCPMessage(z);
+        Log.d("acc ", "data sent");
+
     }
 
-    private void onResponseReceived(Object sender, final TypedResponseReceivedEventArgs<MyResponse> e)
+    //Request for the gyroscope data
+    private void onGyroRequest(SensorEvent g)
     {
-        // Display the result - returned number of characters.
-        // Note: Marshal displaying to the correct UI thread.
-        myRefresh.post(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                myResponseEditText.setText(Integer.toString(e.getResponseMessage().Length));
-            }
-        });
+        String gx = "GX:" + g.values[0];
+        String gy = "GY:" + g.values[1];
+        String gz = "GZ:" + g.values[2];
+
+        myTCPManager.sendTCPMessage(gx);
+        myTCPManager.sendTCPMessage(gy);
+        myTCPManager.sendTCPMessage(gz);
+
     }
 
-    private EventHandler<TypedResponseReceivedEventArgs<MyResponse>> myOnResponseHandler
 
-            = new EventHandler<TypedResponseReceivedEventArgs<MyResponse>>()
-    {
-        @Override
-        public void onEvent(Object sender,
-                            TypedResponseReceivedEventArgs<MyResponse> e)
-        {
-            onResponseReceived(sender, e);
-        }
-    };
 
     // Button that sends the message when clicked
     private OnClickListener myOnSendRequestClickHandler = new OnClickListener()
@@ -251,7 +199,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         @Override
         public void onClick(View v)
         {
-            Log.d("textevent","Text send button clicked:");
+            Log.d("Message","Text send button clicked:");
             onSendRequest(v);
             myMessageTextEditText.getText().clear();
             updateQuestion();
@@ -259,20 +207,93 @@ public class MainActivity extends Activity implements SensorEventListener{
     };
 
 
-    // Button that sends the accelerometer data when clicked
+    // Checkbox for the sensors and button to send the data
     private OnClickListener myOnAccRequestClickHandler = new OnClickListener() {
         @Override
         public void onClick(View acc) {
-            Log.d("Debug","ACC button Pressed");
+            Log.d("Sensor","ACC button Pressed");
 
-            if(DataRequested == true){
-                DataRequested = false;
-            } else if(DataRequested == false){
-                DataRequested = true;
-            }
+            // Checkbox for Accelerometer
+            if(myCheckBoxAcc.isChecked()) {
+
+                if(DataRequested == true) {
+                    DataRequested = false;
+
+                    generatePopUp("Sensor data recording stopped");
+
+                    xText.setVisibility(View.INVISIBLE);
+                    yText.setVisibility(View.INVISIBLE);
+                    zText.setVisibility(View.INVISIBLE);
+                }
+                else if(DataRequested == false) {
+                    DataRequested = true;
+
+                    generatePopUp("Sensor data recording started");
+
+                    xText.setVisibility(View.VISIBLE);
+                    yText.setVisibility(View.VISIBLE);
+                    zText.setVisibility(View.VISIBLE);
+                }
             }
 
-        };
+            // Checkbox for Gyroscope
+            if(myCheckBoxGyro.isChecked()) {
+
+                if(DataRequested == true){
+                    DataRequested = false;
+
+                    generatePopUp("Sensor data recording stopped");
+
+                    GyroXText.setVisibility(View.INVISIBLE);
+                    GyroYText.setVisibility(View.INVISIBLE);
+                    GyroZText.setVisibility(View.INVISIBLE);
+                }
+                else if(DataRequested == false){
+                    DataRequested = true;
+
+                    generatePopUp("Sensor data recording started");
+
+                    GyroXText.setVisibility(View.VISIBLE);
+                    GyroYText.setVisibility(View.VISIBLE);
+                    GyroZText.setVisibility(View.VISIBLE);
+                }
+            }
+
+            // Checkbox for Accelerometer and Gyroscope
+            if(myCheckBoxAcc.isChecked() && myCheckBoxGyro.isChecked()) {
+
+                if(DataRequested == true) {
+                    DataRequested = false;
+
+                    generatePopUp("Sensor data recording stopped");
+
+                    xText.setVisibility(View.INVISIBLE);
+                    yText.setVisibility(View.INVISIBLE);
+                    zText.setVisibility(View.INVISIBLE);
+
+                    GyroXText.setVisibility(View.INVISIBLE);
+                    GyroYText.setVisibility(View.INVISIBLE);
+                    GyroZText.setVisibility(View.INVISIBLE);
+                }
+                else if(DataRequested == false) {
+                    DataRequested = true;
+
+                    generatePopUp("Sensor data recording started");
+
+                    xText.setVisibility(View.VISIBLE);
+                    yText.setVisibility(View.VISIBLE);
+                    zText.setVisibility(View.VISIBLE);
+
+                    GyroXText.setVisibility(View.VISIBLE);
+                    GyroYText.setVisibility(View.VISIBLE);
+                    GyroZText.setVisibility(View.VISIBLE);
+                }
+            }
+        }
+
+    };
+
+
 
 
     // Questions being updated
@@ -283,6 +304,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         if(mQuestionNumber > 4) {
             mySendRequestBtn.setVisibility(View.INVISIBLE);
             myMessageTextEditText.setVisibility(View.INVISIBLE);
+            // TODO Slider shows up here
         }
 
     }
@@ -292,4 +314,12 @@ public class MainActivity extends Activity implements SensorEventListener{
         InputMethodManager imm = (InputMethodManager)activity.getSystemService(Activity.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(activity.getCurrentFocus().getWindowToken(), 0);
     }
+
+    public void generatePopUp(String s){
+        final Toast myToastConnected = Toast.makeText(MainActivity.this, s, Toast.LENGTH_SHORT);
+        myToastConnected.setGravity(Gravity.CENTER_HORIZONTAL, 0, 0);
+        myToastConnected.show();
+    };
+
+
 }
