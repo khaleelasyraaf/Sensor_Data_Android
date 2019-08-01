@@ -1,11 +1,13 @@
 package com.example.lhapp4;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -42,24 +44,27 @@ public class ConnectionActivity extends AppCompatActivity implements Serializabl
     }
 
 
-
+    // Button that opens the MainActivity page once the connection has been established,
+    // based on IP Address and Port Number.
     private String  ipAddress = "";
     private View.OnClickListener myConnectRequestClickHandler = new View.OnClickListener() {
         @Override
         public void onClick(View cnn) {
             ipAddress = "tcp://192.168.0." + myIPaddressInput.getText() + ":" + myPortInput.getText();
             final Intent intent = new Intent(ConnectionActivity.this, MainActivity.class);
-            generatePopUp("clicked" + ipAddress);
+
+            //generatePopUp("clicked" + ipAddress);
+
             Thread anOpenConnectionThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         myTCPManager.openConnection(ipAddress);
-                        //generatePopUp("Connection Established");
-                        //myTCPManager.onDestroy();
+                        myTCPManager.onDestroy();
                     } catch (Exception err) {
                         //generatePopUp("Open connection failed.");
                     }
+
                     if(myTCPManager.SuccessfullyConnected == true) {
                         intent.putExtra("IP", ipAddress);
                         startActivity(intent);
@@ -68,16 +73,21 @@ public class ConnectionActivity extends AppCompatActivity implements Serializabl
             });
             anOpenConnectionThread.start();
 
-            //Boolean success = false;
 
         }
     };
 
-        public void generatePopUp(String s){
-            final Toast myToast = Toast.makeText(ConnectionActivity.this, s, Toast.LENGTH_SHORT);
-            myToast.setGravity(Gravity.CENTER_HORIZONTAL, 0, 0);
-            myToast.show();
-        };
+    // Remove keyboard on screen touch (anywhere else besides keyboard)
+    public void hideKeyboard(View kb) {
+        InputMethodManager imm = (InputMethodManager) getSystemService(Activity.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(kb.getWindowToken(), 0);
+    }
 
+    // Toast message
+    public void generatePopUp(String s){
+        final Toast myToast = Toast.makeText(ConnectionActivity.this, s, Toast.LENGTH_SHORT);
+        myToast.setGravity(Gravity.CENTER_HORIZONTAL, 0, 0);
+        myToast.show();
+    };
 
 }
