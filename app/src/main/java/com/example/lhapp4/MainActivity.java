@@ -1,21 +1,12 @@
 package com.example.lhapp4;
 
-import eneter.messaging.diagnostic.EneterTrace;
-import eneter.messaging.endpoints.typedmessages.*;
-import eneter.messaging.messagingsystems.messagingsystembase.*;
-import eneter.messaging.messagingsystems.tcpmessagingsystem.TcpMessagingSystemFactory;
-import eneter.net.system.EventHandler;
 import android.app.Activity;
 
-import android.nfc.Tag;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 
@@ -23,7 +14,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
-
+import android.content.Context;
 public class MainActivity extends Activity implements SensorEventListener{
 
     private QuestionsLibrary mQuestionsLibrary = new QuestionsLibrary();
@@ -40,6 +31,7 @@ public class MainActivity extends Activity implements SensorEventListener{
     private SensorManager SM;
     Sensor myAccelerometer, myGyroscope, myLight;
     TCPManager myTCPManager;
+    Context context;
 
     /** Called when the activity is first created. */
     @Override
@@ -47,18 +39,17 @@ public class MainActivity extends Activity implements SensorEventListener{
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        myTCPManager = new TCPManager();
+        context = this;
+        myTCPManager = new TCPManager(context);
         final String ipAddress = getIntent().getStringExtra("IP");
         Thread anOpenConnectionThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
                     myTCPManager.openConnection(ipAddress);
-                    //generatePopUp("Connection Established");
-                    //myTCPManager.onDestroy();
-                } catch (Exception err) {
-                    //generatePopUp("Open connection failed.");
+                }
+                catch (Exception err) {
+
                 }
             }
         });
@@ -81,6 +72,8 @@ public class MainActivity extends Activity implements SensorEventListener{
         SM.registerListener(MainActivity.this, myGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
         SM.registerListener(MainActivity.this, myLight, SensorManager.SENSOR_DELAY_NORMAL);
 
+        //region Widgets
+
         // Get UI widgets.
         myMessageTextEditText = (EditText) findViewById(R.id.messageTextEditText);
         myResponseEditText = (EditText) findViewById(R.id.messageLengthEditText);
@@ -100,6 +93,8 @@ public class MainActivity extends Activity implements SensorEventListener{
         GyroZText = (TextView) findViewById(R.id.GyroZText);
 
         lightView = (TextView) findViewById(R.id.lightView);
+
+        //endregion
 
         updateQuestion();
 
@@ -130,21 +125,12 @@ public class MainActivity extends Activity implements SensorEventListener{
         });
     }
 
-    // Stop sending the sensors data when the app is closed
+    // Stop listening to the sensors when the app is closed
     @Override
     protected void onPause() {
         super.onPause();
         SM.unregisterListener(MainActivity.this);
     }
-
-    // Continue sending the sensors data
-    //@Override
-    //protected void onResume() {
-    //    super.onResume();
-    //    SM.registerListener(MainActivity.this, myAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-    //    SM.registerListener(MainActivity.this, myGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
-    //    SM.registerListener(MainActivity.this, myLight, SensorManager.SENSOR_DELAY_NORMAL);
-    //}
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
@@ -197,6 +183,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         }
     }
 
+    //region Request data
 
     // Request for the text message
     private void onSendRequest(View v)
@@ -241,20 +228,9 @@ public class MainActivity extends Activity implements SensorEventListener{
         myTCPManager.sendTCPMessage(li);
     }
 
+    //endregion
 
-    // Button that sends the message when clicked
-    private OnClickListener myOnSendRequestClickHandler = new OnClickListener()
-    {
-        @Override
-        public void onClick(View v)
-        {
-            Log.d("Message","Text send button clicked:");
-            onSendRequest(v);
-            myMessageTextEditText.getText().clear();
-            updateQuestion();
-        }
-    };
-
+    //region Checkbox
 
     boolean IsAccDataRequested = false;
     boolean IsGyroDataRequested = false;
@@ -277,6 +253,23 @@ public class MainActivity extends Activity implements SensorEventListener{
         IsLightDataRequested = myCheckBoxLight.isChecked();
         generatePopUp("IsLightDataRequested: " + IsLightDataRequested);
     }
+
+    //endregion
+
+    //region Send data
+
+    // Button that sends the message when clicked
+    private OnClickListener myOnSendRequestClickHandler = new OnClickListener()
+    {
+        @Override
+        public void onClick(View v)
+        {
+            Log.d("Message","Text send button clicked:");
+            onSendRequest(v);
+            myMessageTextEditText.getText().clear();
+            updateQuestion();
+        }
+    };
 
     // Button that sends the sensor data when clicked
     private OnClickListener myOnAccRequestClickHandler = new OnClickListener() {
@@ -325,9 +318,11 @@ public class MainActivity extends Activity implements SensorEventListener{
 
     };
 
+    //endregion
+
 
     // Questions being updated
-    private void updateQuestion() {
+    public void updateQuestion() {
         myQuestionView.setText(mQuestionsLibrary.getQuestion(mQuestionNumber));
         mQuestionNumber++;
 

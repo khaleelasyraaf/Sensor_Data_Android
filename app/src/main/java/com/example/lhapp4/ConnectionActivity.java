@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -12,12 +11,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.Context;
 
 import java.io.Serializable;
 
-import eneter.messaging.diagnostic.EneterTrace;
-import eneter.messaging.endpoints.typedmessages.IDuplexTypedMessageSender;
-
+/**Class for handling the connection page**/
 public class ConnectionActivity extends AppCompatActivity implements Serializable {
 
 
@@ -25,7 +23,7 @@ public class ConnectionActivity extends AppCompatActivity implements Serializabl
     private EditText myIPaddressInput, myPortInput;
     private Button myConnectBtn;
     TCPManager myTCPManager;
-    private IDuplexTypedMessageSender<String, String> mySender;
+    Context context;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +38,7 @@ public class ConnectionActivity extends AppCompatActivity implements Serializabl
 
         myConnectBtn.setOnClickListener(myConnectRequestClickHandler);
 
-        myTCPManager = new TCPManager();
+        myTCPManager = new TCPManager(context);
     }
 
 
@@ -53,16 +51,16 @@ public class ConnectionActivity extends AppCompatActivity implements Serializabl
             ipAddress = "tcp://192.168.0." + myIPaddressInput.getText() + ":" + myPortInput.getText();
             final Intent intent = new Intent(ConnectionActivity.this, MainActivity.class);
 
-            //generatePopUp("clicked" + ipAddress);
+            generatePopUp("clicked" + ipAddress);
 
             Thread anOpenConnectionThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
                     try {
                         myTCPManager.openConnection(ipAddress);
-                        myTCPManager.onDestroy();
+                        //myTCPManager.onDestroy();
                     } catch (Exception err) {
-                        //generatePopUp("Open connection failed.");
+
                     }
 
                     if(myTCPManager.SuccessfullyConnected == true) {
