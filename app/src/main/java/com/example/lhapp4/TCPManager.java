@@ -1,6 +1,5 @@
 package com.example.lhapp4;
 
-import android.os.Handler;
 import android.util.Log;
 import eneter.messaging.diagnostic.EneterTrace;
 import eneter.messaging.endpoints.typedmessages.DuplexTypedMessagesFactory;
@@ -72,7 +71,7 @@ public class TCPManager {
 
     private void onResponseReceived(Object sender, final TypedResponseReceivedEventArgs<String> e)
     {
-        Log.d("Message Recevied", String.valueOf(R.id.questionText1));
+        Log.d("Message Received", String.valueOf(R.id.questionText1));
         String s = e.getResponseMessage();
         TextView txtView = (TextView) ((MainActivity)context).findViewById(R.id.questionText1);
         txtView.setText(s);

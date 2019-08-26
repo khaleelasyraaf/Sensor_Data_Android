@@ -98,7 +98,7 @@ public class MainActivity extends Activity implements SensorEventListener{
 
         updateQuestion();
 
-        // Subscribe to handle the button click.
+        // Subscribe to handle the button click
         mySendRequestBtn.setOnClickListener(myOnSendRequestClickHandler);
         myAccRequestBtn.setOnClickListener(myOnAccRequestClickHandler);
 
@@ -125,7 +125,7 @@ public class MainActivity extends Activity implements SensorEventListener{
         });
     }
 
-    // Stop listening to the sensors when the app is closed
+    // Stop listening to the sensors when the application is closed
     @Override
     protected void onPause() {
         super.onPause();
@@ -188,7 +188,7 @@ public class MainActivity extends Activity implements SensorEventListener{
     // Request for the text message
     private void onSendRequest(View v)
     {
-        String s = "QQ:" + myMessageTextEditText.getText().toString();
+        String s = "Que=" + "Q:" + myMessageTextEditText.getText().toString();
         myTCPManager.sendTCPMessage(s);
     }
 
@@ -196,35 +196,33 @@ public class MainActivity extends Activity implements SensorEventListener{
     // Request for the accelerometer data
     private void onAccRequest(SensorEvent e)
     {
+        float Acc_X = e.values[0];
+        float Acc_Y = e.values[1];
+        float Acc_Z = e.values[2];
 
-        String x = "AX:" + e.values[0];
-        String y = "AY:" + e.values[1];
-        String z = "AZ:" + e.values[2];
-
-        myTCPManager.sendTCPMessage(x);
-        myTCPManager.sendTCPMessage(y);
-        myTCPManager.sendTCPMessage(z);
+        String accString = "Acc=" + "X:" + Acc_X + "Y:" + Acc_Y + "Z:" + Acc_Z;
+        myTCPManager.sendTCPMessage(accString);
 
     }
 
     // Request for the gyroscope data
     private void onGyroRequest(SensorEvent g)
     {
-        String gx = "GX:" + g.values[0];
-        String gy = "GY:" + g.values[1];
-        String gz = "GZ:" + g.values[2];
+        float Gyro_X = g.values[0];
+        float Gyro_Y = g.values[1];
+        float Gyro_Z = g.values[2];
 
-        myTCPManager.sendTCPMessage(gx);
-        myTCPManager.sendTCPMessage(gy);
-        myTCPManager.sendTCPMessage(gz);
+        String gyroString = "Gyr="+ "X:" + Gyro_X + "Y:" + Gyro_Y + "Z:" + Gyro_Z;
+        myTCPManager.sendTCPMessage(gyroString);
 
     }
 
     // Request for the light data
     private void onLightRequest(SensorEvent light)
     {
-        String li = "LI:" + light.values[0];
+        float Ambient_Light = light.values[0];
 
+        String li = "Lig=" + "L:" + Ambient_Light;
         myTCPManager.sendTCPMessage(li);
     }
 
@@ -329,7 +327,6 @@ public class MainActivity extends Activity implements SensorEventListener{
         if(mQuestionNumber > 4) {
             mySendRequestBtn.setVisibility(View.INVISIBLE);
             myMessageTextEditText.setVisibility(View.INVISIBLE);
-            // TODO Slider shows up here
         }
 
     }
